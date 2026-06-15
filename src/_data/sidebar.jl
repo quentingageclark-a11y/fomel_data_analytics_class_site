@@ -1,7 +1,7 @@
 [
-    "welcome" => "Welcome",
-    "module1" => "Module 1: Website setup",
-    "module2" => "Module 2: Adding course material",
-    "module3" => "Module 3: Publishing your website", 
+    "welcome" => "Intro",
+    "module1" => "Module 1: FAQ",
+    "module2" => "Module 2: Geological Background",
+    "module3" => "Module 3: Updated Course Syllabus", 
     "module4" => "Data Analysis Notebooks"
 ]
