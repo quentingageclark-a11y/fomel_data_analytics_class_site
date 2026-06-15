@@ -1,11 +1,10 @@
-# Computational thinking template
+# Seismic Data Analysis Book
 
 <p align="center">
-<a href="https://juliapluto.github.io/computational-thinking-template"> <b>Go to template website</b> :balloon:</a> </br>
-template includes instructions for how to start editing to shape to your own needs :rocket:
+<a href="https://juliapluto.github.io/computational-thinking-template"> <b>View template website</b> :balloon:</a> </br>
+template includes instructions for how to start editing to shape new websites to your own needs :rocket:
 </p>
 
-This repository is a template to build a website like the [Computational thinking course](https://computationalthinking.mit.edu/) tought at MIT.
+This repository is based off a template used to build the website [Computational thinking course](https://computationalthinking.mit.edu/) taught at MIT. It is Heavily modified but guided by their course structure. 
 
-**Note**: This is the second version. It's already working a bit better, but still not completely finished. Give it a try, and please let us know how it goes so we can improve it in the future!
 
