@@ -5,7 +5,7 @@
 #> chapter = 4
 #> section = 6
 #> order = 6
-#> image = "https://github.com/quentingageclark-a11y/plutoimages/blob/main/fourier.png?raw=true"
+#> image = "https://github.com/quentingageclark-a11y/plutoimages/blob/main/revconv.png?raw=true"
 #> title = "Fourier Transform"
 #> tags = ["module4", "track_julia", "track_material", "Pluto", "PlutoUI"]
 #> layout = "layout.jlhtml"
