@@ -3,29 +3,32 @@
 
 #> [frontmatter]
 #> chapter = 4
-#> section = 8
-#> order = 8
-#> image = "https://raw.githubusercontent.com/fonsp/Pluto.jl/580ab811f13d565cc81ebfa70ed36c84b125f55d/demo/plutodemo.gif"
-#> title = "The Wavelet Transform"
+#> section = 7
+#> order = 7
+#> image = "https://github.com/quentingageclark-a11y/plutoimages/blob/main/monalisa.png?raw=true"
+#> title = "The Helix Transform"
 #> tags = ["module4", "track_julia", "track_material", "Pluto", "PlutoUI"]
 #> layout = "layout.jlhtml"
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 6f2617f2-eca7-4575-b1e5-c5f254516d88
+# ╔═╡ 07e27cd5-4c74-4e73-b1a7-d5fe2651f02f
 begin
 	using PlutoUIExtra
 	TableOfContents()
 end
 
-# ╔═╡ 89a01055-d24b-488c-a3c8-9c8822567cd8
+# ╔═╡ 868cfea3-4029-416a-95e3-81f4e05a7a81
 using Plots
 
-# ╔═╡ 8ad29b44-d1d8-4253-9ec7-4ec983d71026
+# ╔═╡ 58b6375b-9067-4ee2-b260-4b0ae3b8e426
+using LinearAlgebra, Random
+
+# ╔═╡ 0a8c1424-35f5-44f7-97bb-8ba02df829ec
 import HTTP
 
-# ╔═╡ 567d20a3-d04f-42b4-8495-cd91fbae3c45
+# ╔═╡ 0b62a901-60f5-4eec-a5e3-e92f880ff6c6
 let
     notebook_dir = @__DIR__
     toc_path = joinpath(notebook_dir, "TOC_Notebook.jl")
@@ -33,571 +36,868 @@ let
     Markdown.parse("[⬅️ Back to Table of Contents](./open?path=$(HTTP.escapeuri(toc_path)))")
 end
 
-# ╔═╡ 359483d5-0d23-4d47-ab24-cbfaa505b16e
+# ╔═╡ c8439cda-03b0-44a0-b5ad-14617f30ba32
 md"""
-# Wavelet Transform
+# Helix transform
 
-The wavelet transform is a powerful method for analyzing many signals. Like the Fourier transform, the wavelet transform can be either continuous or discrete. Instead of frequency, as used in the Fourier transform, the wavelet transform uses scale, making it especially suitable for representing non-stationary signals with scale-dependent properties.
+
+Extending convolution (polynomial multiplication in the $Z$-transform notation) to the multidimensional case is straightforward. Less obvious is how to extend inverse convolution (polynomial division). We will discuss how to accomplish this using Claerbout's helix transform.
 """
 
-# ╔═╡ e451844b-0017-4c03-95e1-561795859321
+# ╔═╡ 7beae512-736a-48ff-af57-41e7f805f599
 md"""
-## Digital wavelet transform
+## Multidimensional convolution
 
-Similar to the Fourier transform, the digital wavelet transform has a continuous counterpart, known as the continuous wavelet transform. In this chapter, we will focus only on the digital version.
+Extending convolution to multiple dimensions is straightforward. Instead of shifting in a single dimension (represented by $Z$ in the $Z$-transform notation), we must consider shifts across multiple dimensions and their combinations. Therefore, convolution with a two-dimensional filter can be expressed as
+
+$$y_{k_1,k_2} = \sum\limits_{n_2=0}^{N_2-1} \sum\limits_{n_2=0}^{N_2-1} f_{n_1,n_2}\,x_{k_1-n_1,k_2-n_2}$$
+
+or as a multiplication by a polynomial filter
+
+$$F_2(Z_1,Z_2)=f_{00}+f_{10}\,Z_1+f_{01}\,Z_2+f_{20}\,Z_1^2+f_{11}\,Z_1\,Z_2+f_{02}\,Z_2^2+\cdots\;,$$
+
+where $Z_1$ and $Z_2$ represent shifts in two orthogonal directions. Analogously, convolution with an $N$-dimensional filter can be represented as a multiplication by
+
+$$\begin{array}{rcl}F_N(Z_1,Z_2,\cdots,Z_N)=f_{00\cdots0} & + & f_{100\cdots0}\,Z_1+f_{010\cdots0}\,Z_2+\cdots+f_{00\cdots01}\,Z_N \\
+                                  & + & f_{200\cdots0}\,Z_1^2+f_{110\cdots0}\,Z_1\,Z_2+\cdots\end{array}$$
 """
 
-# ╔═╡ a9957069-99bd-4c4a-8e31-72e3f3bbf87a
+# ╔═╡ 233d6871-5184-487a-b631-9b6de417eabd
+function convolve(x, b, adjoint=false)
+    "N-dimensional convolution"
+    nx, nb = map(CartesianIndices, (x,b))
+    y = zeros(eltype(x), size(x))
+    for ib in nb, iy in ib:last(nx)
+        ix = iy - ib + first(nx)
+        if adjoint # correlation
+            y[ix] += x[iy] * b[ib]
+        else       # convolution
+            y[iy] += x[ix] * b[ib]
+        end
+    end
+    return y
+end
+
+# ╔═╡ 908b43bb-6980-42ef-8b58-d97e299ff66d
+begin
+	z = zeros(10,5)
+	for ci in CartesianIndices(z)
+		println(ci)
+	end
+end
+
+# ╔═╡ ba18eae6-c56c-4838-85d5-2a37bdaba6c1
+begin
+	spike = zeros(Float32, 17, 13)
+	spike[8,2] = 1
+	horse = zeros(Float32, 3, 4)
+	horse[3,:] .= 1
+	horse[:,1] .= 1
+	slant = zeros(Float32, 4, 8)
+	slant[1,1] = 1
+	slant[2,6] = -0.4
+	slant[3,7] = 0.3
+	slant[4,8] = -0.9;
+end
+
+# ╔═╡ 4d409430-0f82-44df-ab59-1a9108f1e6d4
+begin
+	ihorse = convolve(spike, horse);
+	islant = convolve(spike, slant);
+	conv2 = convolve(ihorse, slant);
+end
+
+# ╔═╡ e0781ad3-5c46-4cb6-baac-5ab20a02dbfa
+plot2(data, title) = heatmap(data, color=:grays, legend=:none, 
+	                  aspect_ratio=:equal, title=title,
+                      yflip=:true, xlim=(0.5,size(data,2)+0.5), 
+	                  ylim=(0.5,size(data,1)+0.5), 
+                      clim=(-1,1), axis=nothing)
+
+# ╔═╡ c87909ed-82da-4c0b-9cd7-41b91166c693
+begin
+	p1 = plot2(ihorse, "A");
+	p2 = plot2(islant, "B");
+	p3 = plot2(conv2, "A (convolve) B");
+	plot(p1, p2, p3, layout=(1, 3))
+end
+
+# ╔═╡ 0a686f45-2554-4e2b-9b5f-27212ecc044c
 md"""
-The digital wavelet transform (DWT) is generally not derived directly from the continuous wavelet transform but is instead constructed using specialized digital filters. One of the simplest forms of DWT is the Haar transform.
+A more challenging task is inverse convolution (polynomial division). The key to recursive division in one dimension was creating an ordered input sequence to generate the output recursively. This ordering is not immediately obvious in the multidimensional case. The helix transform establishes it.
 """
 
-# ╔═╡ 28a36422-722f-4726-954b-a68b40b58705
+# ╔═╡ 5327b862-bd75-4fad-93d0-c6898ea9c673
 md"""
-## Haar transform
+## Helix transform
 
-Let us consider a simple example to see how the Haar transform works. Suppose that the input data contains the following set of numbers (summer weather forecast with temperature in Fahrenheit):
+To make a concrete example, consider a 2-D filter $F_2(Z_1,Z_2)=1+2\,Z_1+3\,Z_1\,Z_2$. The convolution of this filter with a $5 \times 3$ input can be expressed as a multiplication by a
+$15 \times 15$ matrix
 
-$$\begin{array}{|cccccccc|} \hline 94 & 94 & 95 & 97 & 98 & 98 & 96 & 96 \\ \hline \end{array}\;.$$
+$$\left[
+\begin{array}{l}
+y_{00} \\
+y_{10} \\
+y_{20} \\
+y_{30} \\
+y_{40} \\
+\hline
+y_{01} \\
+y_{11} \\
+y_{21} \\
+y_{31} \\
+y_{41} \\
+\hline
+y_{02} \\
+y_{12} \\
+y_{22} \\
+y_{32} \\
+y_{42} 
+\end{array}
+\right] = 
+\left[
+\begin{array}{rrrrr|rrrrr|rrrrr}
+  1 & 0 & 0 & 0 & 0
+&   &   &   &   & 
+&   &   &   &   &    \\
+  2 & 1 & 0 & 0 & 0 
+&   &   &   &   & 
+&   &   &   &   &    \\
+  0 & 2 & 1 & 0 & 0  
+&   &   & 0 &   & 
+&   &   & 0 &   &    \\
+  0 & 0 & 2 & 1 & 0 
+&   &   &   &   & 
+&   &   &   &   &    \\
+  0 & 0 & 0 & 2 & 1
+&   &   &   &   & 
+&   &   &   &   &    \\
+\hline
+  0 & 0 & 0 & 0 & 0 
+& 1 & 0 & 0 & 0 & 0 
+&   &   &   &   &    \\
+  3 & 0 & 0 & 0 & 0
+& 2 & 1 & 0 & 0 & 0
+&   &   &   &   &    \\
+  0 & 3 & 0 & 0 & 0
+& 0 & 2 & 1 & 0 & 0  
+&   &   & 0 &   &    \\
+  0 & 0 & 3 & 0 & 0 
+& 0 & 0 & 2 & 1 & 0 
+&   &   &   &   &    \\
+  0 & 0 & 0 & 3 & 0 
+& 0 & 0 & 0 & 2 & 1 
+&   &   &   &   &    \\
+\hline
+  0 & 0 & 0 & 0 & 0
+& 0 & 0 & 0 & 0 & 0 
+& 1 & 0 & 0 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 3 & 0 & 0 & 0 & 0
+& 2 & 1 & 0 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 3 & 0 & 0 & 0
+& 0 & 2 & 1 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 0 & 3 & 0 & 0
+& 0 & 0 & 2 & 1 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 0 & 0 & 3 & 0
+& 0 & 0 & 0 & 2 & 1 
+\end{array}
+\right]\,
+\left[
+\begin{array}{l}
+x_{00} \\
+x_{10} \\
+x_{20} \\
+x_{30} \\
+x_{40} \\
+\hline
+x_{01} \\
+x_{11} \\
+x_{21} \\
+x_{31} \\
+x_{41} \\
+\hline
+x_{02} \\
+x_{12} \\
+x_{22} \\
+x_{32} \\
+x_{42} 
+\end{array}
+\right]\;.$$
+    
+We observe that the 2-D convolution matrix has a block-diagonal structure similar to that of a 1-D convolution matrix. However, some of the diagonals appear broken. The idea behind the helix transform is to keep matrix values constant along all diagonals. In other words, we replace the previous matrix with the new matrix
+
+$$\left[
+\begin{array}{rrrrr|rrrrr|rrrrr}
+  1 & 0 & 0 & 0 & 0
+&   &   &   &   & 
+&   &   &   &   &    \\
+  2 & 1 & 0 & 0 & 0 
+&   &   &   &   & 
+&   &   &   &   &    \\
+  0 & 2 & 1 & 0 & 0  
+&   &   & 0 &   & 
+&   &   & 0 &   &    \\
+  0 & 0 & 2 & 1 & 0 
+&   &   &   &   & 
+&   &   &   &   &    \\
+  0 & 0 & 0 & 2 & 1
+&   &   &   &   & 
+&   &   &   &   &    \\
+\hline
+  0 & 0 & 0 & 0 & \mathbf{2} 
+& 1 & 0 & 0 & 0 & 0 
+&   &   &   &   &    \\
+  3 & 0 & 0 & 0 & 0
+& 2 & 1 & 0 & 0 & 0
+&   &   &   &   &    \\
+  0 & 3 & 0 & 0 & 0
+& 0 & 2 & 1 & 0 & 0  
+&   &   & 0 &   &    \\
+  0 & 0 & 3 & 0 & 0 
+& 0 & 0 & 2 & 1 & 0 
+&   &   &   &   &    \\
+  0 & 0 & 0 & 3 & 0 
+& 0 & 0 & 0 & 2 & 1 
+&   &   &   &   &    \\
+\hline
+  0 & 0 & 0 & 0 & \mathbf{3}
+& 0 & 0 & 0 & 0 & \mathbf{2} 
+& 1 & 0 & 0 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 3 & 0 & 0 & 0 & 0
+& 2 & 1 & 0 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 3 & 0 & 0 & 0
+& 0 & 2 & 1 & 0 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 0 & 3 & 0 & 0
+& 0 & 0 & 2 & 1 & 0   \\
+  0 & 0 & 0 & 0 & 0
+& 0 & 0 & 0 & 3 & 0
+& 0 & 0 & 0 & 2 & 1 
+\end{array}
+\right]\;.$$
+
+This transformation involves specific boundary conditions in which the 2-D filter wraps around the boundary with a one-sample shift. This shift makes the 2-D convolution operator equivalent to 1-D convolution with a filter that has gaps.
 """
 
-# ╔═╡ 939e0835-bafe-4ae1-be4f-519a2d030580
+# ╔═╡ 00e9dff1-4d9c-4d66-ad0e-d33525646c9e
 md"""
-The first step of the Haar transform is to divide the numbers into pairs:
+![](https://ahay.org/RSF/book/gee/hlx/Fig/sergey-helix.png)
 
-$$\begin{array}{|cc|cc|cc|cc|} \hline 94 & 94 & 95 & 97 & 98 & 98 & 96 & 96 \\ \hline \end{array}\;.$$
-
-Next, let us compute averages and differences between the two numbers in each pair:
-
-$$\begin{array}{|cc|cc|cc|cc|} \hline 94 & 0 & 96 & 2 & 98 & 0 & 96 & 0 \\ \hline \end{array}\;.$$
+* **Claerbout, J., 1998, Multidimensional recursive filters via a helix: Geophysics, 63, 1532-1541.**
+* **Fomel, S., and J. Claerbout, 2003, Multidimensional recursive filter preconditioning in geophysical estimation problems: Geophysics, 68, 409-420.**
+* **Mersereau, R. M., and D. E. Dudgeon, 1974, The representation of two-dimensional sequences as one-dimensional sequences: IEEE Trans. on Acoustics, Speech, and Signal Processing, SSP-22, 320-325.**
 """
 
-# ╔═╡ 202fcfd9-cb0d-4153-9672-bdfc008c435e
+# ╔═╡ a0d7a53c-a85c-4d94-bcef-925f1ada4138
 md"""
-Now we're climbing the scale ladder: let's set the differences aside, focus on the averages, and consider them as the new input:
-
-$$\begin{array}{|cccc|cccc|} \hline 94 & 96 & 98 & 96 & 0 & 2 & 0 & 0 \\ \hline \end{array}\;.$$
-
-Again, divide into pairs:
-
-$$\begin{array}{|cc|cc|cccc|} \hline 94 & 96 & 98 & 96 & 0 & 2 & 0 & 0 \\ \hline \end{array}\;.$$
+![](https://m.media-amazon.com/images/I/71oGlhJPpVL._UF1000,1000_QL80_.jpg)
 """
 
-# ╔═╡ 80cc744b-3209-4129-9eee-b9239b6cd601
+# ╔═╡ 5ccde062-0cf9-4fcd-944f-850e80a81e46
 md"""
-Compute averages and differences:
+The formal definition of the helix transform is the mapping 
 
-$$\begin{array}{|cc|cc|cccc|} \hline  95 & 2 & 97 & -2 & 0 & 2 & 0 & 0 \\ \hline \end{array}\;.$$
+$$\begin{array}{rcl}Z_1 & = & Z\;, \\
+Z_2 & = & Z^{N_1}\;, \\
+\cdots & & \cdots \\
+Z_k & = & Z^{N_1\,N_2\,\cdots\,N_k}\;.\end{array}$$
 
-Put differences aside and concentrate on the averages:
-
-$$\begin{array}{|cc|cccccc|} \hline  95 & 97 & 2 & -2 & 0 & 2 & 0 & 0 \\ \hline \end{array}\;.$$
+Thus, the 2-D filter $F_2(Z_1,Z_2)=1+2\,Z_1+3\,Z_1\,Z_2$ maps to the 1-D helical filter $F_1(Z)=1+2\,Z+3\,Z^6$ when applied on a $5 \times 3$ grid or the 1-D helical filter $F_1(Z)=1+2\,Z+3\,Z^{501}$ when applied on a $500 \times 300$ grid.
 """
 
-# ╔═╡ 8b952246-80b2-44f6-b8d2-c8d6f80adfda
+# ╔═╡ b308544d-342f-4aaa-9eb4-9e9d0e877645
 md"""
-Now we have just one pair. The process ends with computing the last average and the last difference:
-
-$$\begin{array}{|c|ccccccc|} \hline 96 & 2 & 2 & -2 & 0 & 2 & 0 & 0 \\ \hline \end{array}\;.$$
+!!! note
+  
+    The helix transform imposes specific boundary conditions that make multidimensional convolution equivalent to one-dimensional convolution with a filter that has gaps.
 """
 
-# ╔═╡ 5a26a2da-030b-458f-b123-36fee9b13ba7
+# ╔═╡ edc19bb9-8929-4117-b040-8cb9cee02a25
 md"""
-The first coefficient in the transformed data represents the overall average, while the remaining coefficients capture differences across scales. Because the input signal is smooth across these scales, these differences are small and have a limited range, making them easy to compress. The Haar transform of piecewise smooth data is sparse, containing only a few significant coefficients.
+!!! assignment
+
+    ## Task 1 (theoretical)
+
+    Find a three-dimensional filter $F_3(Z_1,Z_2,Z_3)$ that corresponds to the helical filter $H(Z) = 1 + 2 Z + 3\,Z^{101} + 4\,Z^{701}$ on a $25 \times 25 \times 25$ grid.
 """
 
-# ╔═╡ 7116a716-51f0-4849-810a-9b834d8e31cf
-function haar!(x::Vector{T}, inv::Bool=false) where T <: Real
-    n = length(x) # Assume n is a power of 2
-    if inv
-        j = n ÷ 2
-        while j >= 1
-            for i in 1:2j:n-j
-                x[i] -= x[i+j]/2
-                x[i+j] += x[i]
+# ╔═╡ 157f5f20-58e3-41eb-97b9-f9ff590153b8
+md"""
+To implement helical filtering, we first create a data structure that allows us to skip over gapped values in the filter and perform calculations using only non-zero filter values.
+"""
+
+# ╔═╡ 0659951e-47c5-4115-b3c0-48ef4d5e1c15
+mutable struct HelixFilter
+    lag::Vector{CartesianIndex}
+    flt::Vector
+    HelixFilter(lag,flt) = new(map(CartesianIndex,lag),flt)
+end
+
+# ╔═╡ 2fc1789d-bbf6-4689-8040-68277c5b5dc3
+Base.length(a::HelixFilter) = Base.length(a.lag)
+
+# ╔═╡ 2cd510b3-7d52-4fc2-b54e-8a584fb501f8
+function helix(a::HelixFilter, ci::CartesianIndices)
+    "convert helix lags to 1-D for a given grid"
+    # middle of the grid
+    mid = CartesianIndex(Tuple(last(ci)) .÷ 2)
+	na = length(a.lag)
+	lag = Vector{Int}(undef, na)
+	lin = LinearIndices(ci)
+	for i in 1:na
+        lag[i] = lin[a.lag[i] + mid] - lin[mid]
+    end
+    return lag
+end
+
+# ╔═╡ a6277f35-419b-4c08-97bd-e68c668a9b5d
+function hconvolve(x, a::HelixFilter, adjoint=false)
+    cx, nx, na = CartesianIndices(x), length(x), length(a)
+    lag = helix(a, cx)
+    y = deepcopy(x) # accounting for the zero coefficient
+    for ia in 1:na
+        for iy in 1 + lag[ia] : nx
+            ix = iy - lag[ia]
+            if adjoint # correlation
+                y[ix] += x[iy] * a.flt[ia]
+            else       # convolution
+                y[iy] += x[ix] * a.flt[ia]
             end
-            j ÷= 2
+        end
+    end
+    return y
+end
+
+# ╔═╡ f73c8d74-8c19-47b0-8548-aa5fc5fd8cdc
+md"""
+Regarding computational cost, the helix transform offers no advantage over standard multidimensional convolution. Its computational advantage lies in enabling inverse convolution or polynomial division.
+"""
+
+# ╔═╡ 105c82f6-ba75-4118-b4d2-6804796af16f
+function hrecursive(x, a::HelixFilter, adjoint=false)
+    cx, nx, na = CartesianIndices(x), length(x), length(a)
+    lag = helix(a, cx)
+    y = similar(x)
+    if adjoint
+        @inbounds for ix in nx:-1:1
+            t = x[ix]
+            for ia in 1:na
+                iy = ix + lag[ia]
+                if iy <= nx
+                    t -= a.flt[ia] * y[iy]
+                end
+            end
+            y[ix] = t
         end
     else
-        j = 1
-        while j <= n ÷ 2
-            for i in 1:2j:n-j
-                x[i+j] -= x[i]
-                x[i] += x[i+j]/2
+        @inbounds for ix in 1:nx
+            t = x[ix]
+            for ia in 1:na
+                iy = ix - lag[ia]
+                if iy >= 1
+                    t -= a.flt[ia] * y[iy]
+                end
             end
-            j *= 2
+            y[ix] = t
         end
     end
+    return y
 end
 
-# ╔═╡ 291f65a8-a649-42f4-99ca-2fa3c66ecef0
+# ╔═╡ 9cad3b34-e5fb-4512-aa33-57341c14d06a
+horse
+
+# ╔═╡ 96319f90-4af2-45d2-bc70-68e7b09da964
+h_horse = HelixFilter([(1,0),(2,0),(2,1),(2,2),(2,3)], ones(Float32, 5))
+
+# ╔═╡ 0346e4ce-7150-4afa-b506-747ac6047d31
+slant
+
+# ╔═╡ cc9fd071-8c16-4e17-9614-a43045abb148
+h_slant = HelixFilter([(1,5),(2,6),(3,7)], [-0.4, 0.3, -0.9])
+
+# ╔═╡ f75dad75-f590-414b-8c9b-25050f225cd4
 begin
-	x = [94, 94, 95, 97, 98, 98, 96, 96]
-	haar!(x)
-	x
+	hhorse = hconvolve(spike, h_horse);
+	hslant = hconvolve(spike, h_slant);
+	hconv2 = hconvolve(hhorse, h_slant);
 end
 
-# ╔═╡ 0e81369e-bd42-411e-b767-113097242f8c
+# ╔═╡ cf0d841f-1dbb-4276-aad9-e8b3def57392
 begin
-	y = [94, 94, 95, 97, 98, 98, 96, 96]
-	haar!(y)
-	haar!(y, true)
-	y
+	hp1 = plot2(hhorse, "A");
+	hp2 = plot2(hslant, "B");
+	hp3 = plot2(hconv2, "A (convolve) B");
+	plot(hp1, hp2, hp3, layout=(1, 3))
 end
 
-# ╔═╡ 5ce31f40-776e-49fc-ae87-6d8b908c645a
-function order_coefficients(c::Vector{T}, n::Int) where T <: Real
-    "put wavelet coefficients in the right order"
-    nc = length(c)
-    x = Array{T}(undef, n)
-    ic = 1
-    x[1] = c[1]
-    j = nc ÷ 2
-    while j >= 1                  
-        for i in 1:2j:nc-j
-            ic += 1
-            x[ic] = c[i+j]
-        end
-        if ic >= n
-            return x
-        end
-        j ÷= 2
+# ╔═╡ c4d612dc-73fe-41ec-92e1-666fcc8f2662
+begin
+	spike2 = zeros(Float32, 30,20)
+	spike2[8,12] = -1
+	spike2[7,3] = 1
+end
+
+# ╔═╡ dc5e6482-1fb9-4830-8f30-9626118f02e6
+begin
+	spike3 = zeros(Float32, 30,20)
+	spike3[24,18] = -1
+	spike3[15,6] = 1
+end
+
+# ╔═╡ 330404b7-6695-4585-bcf9-e9933900279f
+four = HelixFilter([(1,0),(-1,1),(0,1),(1,1)],-ones(Float32,4)/4.0)
+
+# ╔═╡ 87bd88cd-d8a3-4d0f-927f-77f77c669fb1
+finput = hconvolve(spike2,four) + spike3;
+
+# ╔═╡ 19b733ed-1d7f-4525-82de-7ac152e60190
+divis = hrecursive(finput,four);
+
+# ╔═╡ 132b5edd-52e8-47a5-a68e-5f4448b9533d
+begin
+	fp1 = plot2(finput, "input");
+	fp2 = plot2(divis, "input/filter");
+	plot(fp1, fp2, layout=(1, 2))
+end
+
+# ╔═╡ 108e4423-f61f-4bbf-b053-fbea44eab5a7
+md"""
+!!! assignment
+
+    ## Task 2
+    Let us check whether the helical forward and adjoint convolutions pass the dot-product test.
+"""
+
+# ╔═╡ 13e36512-7ced-4a91-9e35-32b34ffd8cfa
+function dottest(forward::Function, adjoint::Function, 
+                 m::Array, d::Array)
+    "Dot-product test"
+    mod = similar(m); rand!(mod)
+    dat = similar(d); rand!(dat)
+    println(" L[m]⋅d = $(forward(mod) ⋅ dat)")
+    println("L'[d]⋅m = $(adjoint(dat) ⋅ mod)")
+end
+
+# ╔═╡ cc8a8ca1-2f66-4574-afbd-ab2649f3329f
+dottest(x -> hconvolve(x, h_horse, false), 
+        x -> hconvolve(x, h_horse, true),
+        spike, spike)
+
+# ╔═╡ 137d4887-fb9a-4c72-8318-b98c05143b41
+md"""
+**Your task**: Perform the dot-product test for the recursive convolution in `hrecursive`.
+"""
+
+# ╔═╡ 59f2dc5b-d9bb-41e6-b166-e33e976696d4
+md"""
+## Spectral factorization on a helix
+
+The Wilson-Burg algorithm can be adapted for use with helical filters.
+"""
+
+# ╔═╡ 801118cb-70da-4ffc-aca2-c41931337966
+function hwilson(au0::Real, auto::HelixFilter, lag, niter=10, pad=5)
+    "Wilson-Burg spectral factorization on a helix"
+    # initialize filter
+    na = length(lag)
+    T = eltype(auto.flt)
+    a = HelixFilter(lag,zeros(T, na))
+    grid = Tuple(pad*(maximum(a.lag)-minimum(a.lag)))
+    au = zeros(T, grid)
+    na2 = length(auto)
+    nc = CartesianIndex(grid .÷ 2)
+    # initialize autocorrelation
+    au[nc] = au0
+    for i in 1:na2
+        au[nc+auto.lag[i]] = auto.flt[i]
+        au[nc-auto.lag[i]] = auto.flt[i]
     end
-    return x
+    b = zeros(T,grid)
+    b[nc] = one(T)
+    ic = LinearIndices(au)[nc]
+    for iter in 1:niter
+        bb = hrecursive(au, a, false)  # S/A
+        cc = hrecursive(bb, a, true)   # S/(AA')
+        ϵ = zero(T)
+        for i in ic+1:2*ic-1 # b = Causal[1+cc]
+            bi = 0.5*(cc[i] + cc[2*ic-i]) / cc[ic] 
+            if ϵ < abs(bi); ϵ = abs(bi); end
+            b[i] = bi
+        end
+        @show iter, ϵ
+        b = hconvolve(b, a) # c = A b
+        for i in 1:na
+            a.flt[i] = b[nc+a.lag[i]]
+        end
+    end
+    return a
 end
 
-# ╔═╡ 57fc5904-b45b-4390-a250-7a9cff4c8c5a
-function reorder_coefficients(x::Vector{T}, nc::Int) where T <: Real
-    "inverse transformation to order_coefficients"
+# ╔═╡ 278f7dea-9887-4dfc-af36-cea4ebc51039
+begin
+	spike1 = zeros(Float32, (20, 30))
+	spike1[10,15] = 1
+end
+
+# ╔═╡ d2bef630-c655-4b96-8445-37e8e3c5e1db
+same = hconvolve(spike1, h_horse, false);
+
+# ╔═╡ 310173c7-f937-4411-b38d-578172009ec8
+auto = hconvolve(same, h_horse, true);
+
+# ╔═╡ eb6f694f-77d8-42bb-87c5-fa8c4eb0b865
+function autocorr(a::HelixFilter)
+    "computing autocorrelation"
+    na, T = length(a), eltype(a.flt)
+    counts = Dict{CartesianIndex,T}()
+    for i in 1:na
+        counts[a.lag[i]] = get(counts, a.lag[i], zero(T)) + a.flt[i]
+        for j in i+1:na
+            lag = a.lag[j] - a.lag[i]
+            counts[lag] = get(counts, lag, zero(T)) + a.flt[j]*a.flt[i]
+        end
+    end
+    n = length(counts)
+    lag = Vector{CartesianIndex}(undef,n)
+    flt = Vector{T}(undef,n)
+    idx = 1
+    for (k,v) in counts
+        lag[idx] = k
+        flt[idx] = v
+        idx += 1
+    end
+    return HelixFilter(lag, flt)
+end
+
+# ╔═╡ 6a43dd30-7799-4509-a175-0459770f7488
+a_horse = autocorr(h_horse)
+
+# ╔═╡ 4ae0dd57-182c-47f0-8243-f0ed9f3c7ff9
+begin
+	a0 = 1 + sum(h_horse.flt .^ 2)
+	lag = vcat(
+	    [(x,0) for x in 1:5],
+	    [(x,1) for x in -5:5],
+	    [(x,2) for x in -5:5],
+	    [(x,3) for x in -5:2])
+	f_horse = hwilson(a0, a_horse, lag)
+end
+
+# ╔═╡ fb604622-7044-4564-8773-059d08e06715
+filt = hconvolve(spike1, f_horse, false);
+
+# ╔═╡ 970126c6-8e4a-4b01-9f1a-80290e372f85
+lspike2 = hrecursive(hrecursive(auto, f_horse, false), f_horse, true);
+
+# ╔═╡ fb5730c4-c250-4979-af8e-20c337a6393b
+begin
+	ap1 = plot2(same, "input");
+	ap2 = plot2(auto/maximum(auto), "autocorr");
+	ap3 = plot2(filt, "Wilson-Burg factor");
+	ap4 = plot2(lspike2/maximum(lspike2), "autocorr/(factor*factor')");
+	plot(ap1, ap2, ap3, ap4, layout=(2, 2))
+end
+
+# ╔═╡ a058667e-f3a8-47e5-83b1-73a8bf7680c4
+md"""
+## Helical derivative
+
+*Helical derivative* is a filter obtained by spectral factorization of the Laplacian filter
+
+$$L(Z_1,Z_2) = 4 - Z_1 - 1/Z_1 - Z_2 - 1/Z_2\;.$$
+
+To invert the Laplacian filter, we use a helix, where it takes the form
+
+$$L_H(Z) = 4 - Z - Z^{-1} - Z^{N_1} - Z^{-N_1}\;,$$
+
+and factor it into two minimum-phase parts $L_H(Z) = D(Z)\,D(1/Z)$ using the Wilson-Burg algorithm. The helical derivative $D(Z)$ enhances the image but is not confined to a single direction.
+"""
+
+# ╔═╡ 37282a3e-faf6-4dc1-be12-30dbb2e2189c
+# download a data file
+download("https://ahay.org/data/bay/mount.rsf@","data.bin")
+
+# ╔═╡ 538a1c40-047f-4624-9957-d7b3b2335005
+mount = Array{Float32}(undef, 979, 1400); # single-precision array
+
+# ╔═╡ 15f4a40c-366d-4e44-b490-33694f5749fa
+read!("data.bin", mount)
+
+# ╔═╡ 764abb6c-da30-4fe6-bba3-28e4c91a7b6f
+heatmap(mount, color=:grays,
+        title="Digital Elevation Map of Mount St. Helens")
+
+# ╔═╡ ca01a561-a004-4168-b4c0-414d74529b1f
+function deriv(x::Vector{T}) where T <: Real
+    # defivative filter D(Z) = Z-1
     n = length(x)
-    c = Array{T}(undef, nc)
-    ic = 1
-    c[1] = x[1]
-    j = nc ÷ 2
-    while j >= 1
-        for i in 1:2j:nc-j
-            if ic < n
-                ic += 1
-                c[i+j] = x[ic]
-            else
-                c[i+j] = zero(T)
-            end
-        end
-        j ÷= 2
-    end  
-    return c
-end
-
-# ╔═╡ 352401a1-9016-407e-88ee-2dfe784f9057
-function DWT(transform::Function, x::Vector{T}, 
-             inv::Bool=false) where T <: Real
-    n = length(x)
-	nt = nextpow(2, n) # the nearest power of two
-    if inv
-        t = reorder_coefficients(x, nt)
-    else
-        t = vcat(x, zeros(T, nt-n)) # pad with zeros
+    y = similar(x)
+    for i in 1:n-1
+        y[i] =  x[i+1] - x[i]
     end
-    transform(t, inv)      
-    return inv ? t[1:n] : order_coefficients(t, n)
+    y[n] = zero(T)
+    return y
 end
 
-# ╔═╡ 2de4580d-319e-4b96-bcee-c4dc7e65aaad
-DWT(haar!, [94, 94, 95, 97, 98, 98, 96, 96])
+# ╔═╡ d52c06c2-2be5-489e-8582-3ef27d156c99
+d1 = mapslices(deriv, mount; dims=1);
 
-# ╔═╡ 4abb361a-d914-4fc3-a422-4a0341f1e4e0
-DWT(haar!, [96, 2, 2, -2, 0, 2, 0, 0], true)
+# ╔═╡ 16c3eca9-03f3-4d01-abdf-92c1b969da0d
+heatmap(d1, color=:grays, clim=(-30,30), title="Vertical Derivative")
 
-# ╔═╡ 3b655702-ffb6-4d0a-8360-02d94e1f080d
-download("https://ahay.org/data/imgs/mona.img","mona.img")
-
-# ╔═╡ d7a8135b-df9d-4882-b277-7489d1229b6a
+# ╔═╡ 20a68a1e-02ce-4ba8-a227-eae93233fc74
 begin
-	image = Array{UInt8}(undef, 512, 513) # byte array
-	read!("mona.img", image)
-	image = reverse(transpose(image[:,1:512]), dims=1)
+	laplacian = HelixFilter([(1,0),(0,1)],[-1.0,-1.0])
+	hlag = vcat([(x,0) for x in 1:10],[(x,1) for x in -10:0])
+	helder = hwilson(4.0, laplacian, hlag)
+	# make sure the filter removes DC
+    helder.flt /= sum(-helder.flt)
 end
 
-# ╔═╡ c495f591-f815-4189-bd0c-82fa209a5fff
-heatmap(image, legend=:none, box=:none, 
-        aspect_ratio=:equal, xlim=[0.5,512.5])
-
-# ╔═╡ 230dd685-c9fe-4785-8eb6-177ad8d9a521
-Haar(trace) = DWT(haar!, trace)
-
-# ╔═╡ cfb14a1b-7274-467b-b588-493f0069c834
-haar1 = mapslices(Haar, float.(image); dims=2)
-
-# ╔═╡ f0a1d712-14bc-47fc-894c-8e9f0525c9c1
-function plot_wavelet1(dwt, name)
-    plt = heatmap(dwt, legend=:none, box=:none, color=:grays, 
-                  aspect_ratio=:equal, xlim=[0.5,512.5],
-                  title="1-D $name Transform", clim=(0, 42))
-    for s in (256, 128, 64, 32, 16, 8, 4, 2)
-        plot!(plt, [s, s], [0, 512], legend=:none, color=:yellow)
-    end
-    return plt
-end
-
-# ╔═╡ 9a69f3f1-b85e-4218-a06b-ee290d41f3a4
-plot_wavelet1(haar1, "Haar")
-
-# ╔═╡ 4b6430f7-25eb-4d8b-8b77-1e3a83f58f37
-haar2 = mapslices(Haar, haar1; dims=1)
-
-# ╔═╡ 2baf629c-df91-45cc-a994-427b8d64d8a1
-function plot_wavelet2(dwt, name)
-    plt = heatmap(dwt, legend=:none, box=:none, color=:grays, 
-                  aspect_ratio=:equal, xlim=[0.5,512.5],
-                  title="2-D $name Transform", clim=(0, 42))
-    for s in (256, 128, 64, 32, 16, 8, 4, 2)
-        plot!(plt, [s, s], [0, 512], legend=:none, color=:yellow)
-        plot!(plt, [0, 512], [s, s], legend=:none, color=:yellow)
-    end
-    return plt
-end
-
-# ╔═╡ 47f54019-42b4-4598-84e0-1a56bc988de1
-plot_wavelet2(haar2, "Haar")
-
-# ╔═╡ 240a7adb-bb7e-4919-8ee5-e98e1c618482
-md"""
-Before we move to a more general formulation, let us make some
-observations about the properties of the transform:
-
-1. The cost of the operation satisfies the recursion
-
-    $$C(N) = C(N/2) + \gamma\,N\;,$$
-
-  which ends up in the cost $O(N)$, as we saw before. Thus, the digital wavelet transform is faster than the fast Fourier transform, which costs $O(N\,\log\,N)$.
-"""
-
-# ╔═╡ b859db26-6a71-4cce-9ea0-19f738680c71
-md"""
-2. While the digital Fourier transform decomposes signals into frequencies, the main dimension of the wavelet transform is scale.
-"""
-
-# ╔═╡ ba630263-19b1-47f1-b6ca-ee5843c49df8
-md"""
-
-3. The operation is easily invertible. From the average and the difference between the odd and even values
-
-$$\begin{array}{rcl}
-    a & = & (o+e)/2\;, \\
-    d & = & o-e\;,\end{array}$$
-
-it is easy to reconstruct both values
-
-$$\begin{array}{rcl}
-    o & = & a+d/2\;. \\
-    e & = & a - d/2\;.\end{array}$$
-"""
-
-# ╔═╡ 748ff555-8c4e-415e-bf6d-33be6c49591b
-md"""
-While the forward operation progresses from small to large scale, the inverse transform moves in the opposite direction, reconstructing odd and even values from large to small scale.        
-"""
-
-# ╔═╡ eb22ac80-cee8-47b3-9057-f7c1bb4d7a1f
-#inverse transform
-Haari(trace) = DWT(haar!, trace, true)
-
-# ╔═╡ af89270e-bde4-4daa-be11-96b72b61f484
-inverse = mapslices(Haari, mapslices(Haari, haar2; dims=1); dims=2);
-
-# ╔═╡ 5772dd5b-b4b1-4bbc-86ce-97dededbd613
-heatmap(inverse, legend=:none, box=:none, aspect_ratio=:equal, 
-        xlim=[0.5,512.5], title="Inverse Transform")
-
-# ╔═╡ 2448b7b0-d7e4-4950-9e53-44a89e7d41db
-md"""
-## Filtering formulation
-
-If a digital signal is represented by its Z-transform
-
-$$X(Z)=x_0+x_1\,Z+x_2\,Z^2+\cdots \;,$$
-
-the operation of upsampling (inserting zeros between each two samples)
-can be represented by
-
-$$X_{\uparrow}(Z)=X\left(Z^2\right) = x_0+x_1\,Z^2+x_2\,Z^4+\cdots$$
-"""
-
-# ╔═╡ c9037f5a-6847-4d1e-8d9d-3b8b94aa522d
-md"""
-The inverse operation is subsampling (selecting every other sample.) Noting that
-
-$$X(-Z)=x_0-x_1\,Z+x_2\,Z^2+\cdots \;,$$
-
-we can find that
-
-$$\begin{array}{rcl}X_{\downarrow}(Z) & = & \displaystyle \frac{1}{2}\left[X\left(\sqrt{Z}\right)+X\left(-\sqrt{Z}\right)\right] \\
-   & = & \displaystyle x_0+x_2\,Z+x_4\,Z^2+\cdots\end{array}$$
-"""
-
-# ╔═╡ dcab260a-cd2d-4603-9ceb-787a50aff76d
-md"""
-The operation of decomposing the signal into odd and even components and then applying filtering operations (averages and differences in the case of the Haar transform) can be described as a chain of filtering through two filters: low-pass $L(Z)$ and high-pass $H(Z)$, followed by subsampling.
-"""
-
-# ╔═╡ 340467eb-0b82-43e9-b0e4-429cdc6e6064
-md"""
-Thus, the output from one step of DWT is
-
-$$\begin{array}{rcl} A(Z) & = & \displaystyle
-   \frac{1}{2}\left[L\left(\sqrt{Z}\right)\,X\left(\sqrt{Z}\right)\right. \\ & & \displaystyle \left. + L\left(-\sqrt{Z}\right) X\left(-\sqrt{Z}\right)\right]\;,
-   \\
-   D(Z) & = & \displaystyle
-   \frac{1}{2}\left[H\left(\sqrt{Z}\right)\,X\left(\sqrt{Z}\right)\right. \\ & & \displaystyle \left. +H\left(-\sqrt{Z}\right)
-              X\left(-\sqrt{Z}\right)\right]\;.\end{array}$$
-
-At the next step, $X(Z)$ is replaced by (twice smaller) $A(Z)$, and the operation is repeated.
-"""
-
-# ╔═╡ 96f1c5f7-f443-4095-a222-e80451588ab2
-md"""
-The inverse transform will involve upsampling followed by additional
-filtering by filters $\hat{L}(Z)$ and $\hat{H}(Z)$ and summing the
-results. The output takes the form
-
-$$\begin{array}{rcl}
-  \hat{X}(Z) & = & \hat{H}(Z)\,A(Z^2) + \hat{L}(Z)\,D(Z^2) \\ & = & \displaystyle
-  X(Z)\,\frac{\hat{H}(Z)\,L(Z)+\hat{L}(Z)\,H(Z)}{2} \\ & & \displaystyle
-  + X(-Z)\,\frac{\hat{H}(Z)\,L(-Z)+\hat{L}(Z)\,H(-Z)}{2}\;.\end{array}$$
-"""
-
-# ╔═╡ 480411a7-aab9-4837-bd96-36cfd0d1992a
-md"""
-To guarantee that the signal is reconstructed exactly, that is $\hat{X}(Z) =
-X(Z)$, we need to find a pair of *analysis* filters $L(Z)$ and $H(Z)$ and a pair
-of *synthesis* filters $\hat{L}(Z)$ and $\hat{H}(Z)$that satisfy two conditions:
-
-$$\begin{array}{rcl}
-  \hat{H}(Z)\,L(Z)+\hat{L}(Z)\,H(Z) & = & 2\;, \\
-  \hat{H}(Z)\,L(-Z)+\hat{L}(Z)\,H(-Z) & = & 0\;.\end{array}$$
-"""
-
-# ╔═╡ 9556acd8-154e-4dc5-8d6e-418992d5ee0b
-md"""
-We can satisfy the second condition by choosing
-
-$$\begin{array}{rcl}
-  \hat{L}(Z) & = & -L(-Z)\,Z^{-k}\;, \\
-   \hat{H}(Z) & = & H(-Z)\,Z^{-k}\;,\end{array}$$       
-
-where $k$ is some integer power. This choice leaves one condition on the
-connection between $L(Z)$ and $H(Z)$, which takes the form
-
-$$L(Z)\, H(-Z) - L(-Z)\,H(Z) = 2\,Z^{k}\;.$$
-"""
-
-# ╔═╡ 24f792a7-14ad-4ca7-8691-7d601eb380e3
-md"""
-In the case of the Haar transform, 
-
-$$\begin{array}{rcl}  L(Z) & = & \displaystyle \frac{1+Z}{2} \\ H(Z) & = & 1-Z\;,\end{array}$$ 
-
-and it is easy to check that the condition is satisfied with $k=1$.
-"""
-
-# ╔═╡ aa5770df-7711-447a-85f7-832133c1ab73
-md"""
-Another example is
-
-$$\begin{array}{rcl}  L(Z) & = & \displaystyle \frac{(1+Z)^2\,(-1+4Z-Z^2)}{4}\;, \\
-  H(Z) & = & \displaystyle \frac{(1-Z)^2}{4}\;,\end{array}$$
-
-which satisfies the invertibility condition with $k=3$.
-"""
-
-# ╔═╡ 5f3dae3a-202d-4378-b641-6f2ae5266d7d
-md"""
-An additional symmetry can be imposed by taking $H(Z)=L(-Z)$ so that the invertibility condition reduces to
-
-$$L^2(Z) - L^2(-Z) = 2\,Z^{k}\;.$$
-
-Filters that satisfy this condition are known as *quadrature-mirror filters*.The Haar filters can satisfy it if defined symmetrically with$L(Z) = (1+Z)/\sqrt{2}$ and $H(Z) = (1-Z)/\sqrt{2}$. 
-"""
-
-# ╔═╡ 69802871-9d63-4193-a392-d26a89c8724f
-md"""
-The cost of DWT increases proportionally with the filter length. However, longer filters enable better signal compression while preserving the key properties of the transform: $O(N)$ cost, scale separation, and exact invertibility.
-"""
-
-# ╔═╡ bbeb09ca-af66-4897-a780-0adc0a99a680
-function wavelet!(x::Vector{T}, inv::Bool=false) where T <: Real
-    n = length(x) # Assume n is a power of 2
-    if inv
-        j = n ÷ 2
-        while j >= 1
-            for i in 1+2j:2j:n-j; x[i] -= (x[i + j] + x[i - j])/4; end
-            x[1] -= x[j]/2
-            for i in 1:2j:n-2j; x[i + j] += (x[i] + x[i + 2j])/2; end
-            if n > 2j; x[n - j] += x[n - 2j]; end
-            j ÷= 2
-        end
-    else
-        j = 1
-        while j <= n ÷ 2 
-            if n > 2j; x[n - j] -= x[n - 2j]; end
-            for i in 1:2j:n-2j; x[i+j] -= (x[i] + x[i + 2j])/2; end
-            x[1] += x[j]/2
-            for i in 1+2j:2j:n-j; x[i] += (x[i + j] + x[i - j])/4; end
-            j *= 2
-        end
-    end
-end
-
-# ╔═╡ 1b7fd166-bd10-4af2-a9a4-7ddb0f86d2a1
-Wavelet(trace) = DWT(wavelet!, trace)
-
-# ╔═╡ ea3ed115-dc10-4754-971e-0b80f8608889
-dwt1 = mapslices(Wavelet, float.(image); dims=2);
-
-# ╔═╡ d5606f38-9231-463b-93fa-b74a7651fbcf
-dwt2 = mapslices(Wavelet, dwt1; dims=1);
-
-# ╔═╡ a76601ad-6e79-4b07-9e99-5285a5e090db
-plot_wavelet1(dwt1, "Wavelet")
-
-# ╔═╡ 6dcd45b7-fdd4-4e7e-8ec6-e1efae25c78d
-plot_wavelet2(dwt2, "Wavelet")
-
-# ╔═╡ b201e2fe-e14a-4d76-8266-181a40b3c89a
-coef(transform) = sort(abs.(vec(transform)), rev=true)
-
-# ╔═╡ 9a9d6b70-8914-4aa1-bfde-57620f25ce23
+# ╔═╡ 7367d669-656c-4333-bfc9-1222a89d93f1
 begin
-	coef1=coef(haar2)
-	coef2=coef(dwt2)
+	lspike = zeros(Float32,25,25)
+	lspike[13,13] = 1
+	
+	lap = hconvolve(lspike,laplacian,false) + hconvolve(lspike,laplacian,true)
+	lap[13,13] = 4
+	lp1 = plot2(lap/4,"Laplacian");
+	
+	frw = hrecursive(lap,helder,false)
+	lp2 = plot2(frw/3.2,"Laplacian/Helder");
+	
+	adj = hrecursive(lap,helder,true)
+	lp3 = plot2(adj/3.2,"Laplacian/Helder'");
+	
+	inv = hrecursive(frw,helder,true)
+	lp4 = plot2(inv,"Laplacian/Helder/Helder'");
+	
+	plot(lp1, lp2, lp3, lp4, layout=(2, 2))
 end
 
-# ╔═╡ 078571af-5e5b-4ba2-86b5-50949f16b737
-plot([coef1[1:5000] coef2[1:5000]], labels=["Haar" "Wavelet"], 
-     linewidth=2, yscale=:log2, title="Decay of Coefficients")
+# ╔═╡ 89eb1ba3-20c0-4c26-b8b6-47ab0c15c3d6
+dh = hconvolve(mount, helder, false);
 
-# ╔═╡ eefd1fc3-c0e3-4cfb-b42b-fb2ead981b33
+# ╔═╡ ef0c5550-69e4-4848-806a-1394a096d57d
+heatmap(dh, color=:grays, clim=(-20,20), title="Helical Derivative")
+
+# ╔═╡ fcc8b334-b706-4c52-b4bc-a01cbfd09ab1
+savefig("heldir.png")
+
+# ╔═╡ bc4cc41a-1208-4c7f-8cad-2131a0e192e5
 md"""
-## Lifting scheme
+!!! assignment
 
-The high-pass filter in the Haar transform, $H(Z)=1-Z$, can be interpreted as *prediction and subtraction*. Each sample is predicted from its neighbors, and the filter outputs the prediction residual. Similarly, we can rewrite the high-pass filter $H(Z)$ in the other version of DWT as a scaled and shifted version of $1-(Z^{-1}+Z)/2$, where each sample is predicted as the mean of its left and right neighbors.
+    ## Task 3
+
+	We used a five-point Laplacian filter to define the helical derivative.
+
+    |     |     |    |
+    |-----|-----|----|
+	|  0  | -1  |  0 | 
+    | -1  |  4  | -1 |
+    |  0  | -1  |  0 |
+
+    A more accurate version is the nine-point filter
+
+    |     |     |    |
+    |-----|-----|----|
+	| -1  | -4  | -1 | 
+    | -4  | 20  | -4 |
+    | -1  | -4  | -1 |
+
+    $\begin{array}{rcl}\hat{L}_9(Z_1,Z_2) = 20 & - & 4\,Z_1 - 4\,Z_1^{-1} - 4\,Z_2 - 4\,Z_2^{-1} \\ & - & Z_1\,Z_2 - Z_1\,Z_2^{-1} - Z_2\,Z_1^{-1} - Z_1^{-1}\,Z_2^{-1}\;.\end{array}$
+
+    Implement and test the helical derivative corresponding to the spectral factorization of the nine-point Laplacian.
 """
 
-# ╔═╡ 10a9dbab-eb69-4489-9f50-18a915468a78
+# ╔═╡ 7f311104-b2f5-4082-865a-cb029fcc277a
 md"""
-This observation suggests an idea or writing DWT in the following form:
+## Spatial interpolation contest
 
-$$\begin{array}{rcl}\mathbf{r}  & = & \mathbf{o} - \mathbf{P[e]}\; \\
-    \mathbf{a}  & = & \mathbf{e} + \mathbf{U[r]}\;,\end{array}$$
+We return to the spatial interpolation contest using rainfall data from Switzerland. We will perform iterative inverse interpolation using the formulation that involves the model covariance.
 
-where $\mathbf{o}$ and $\mathbf{e}$ represent the odd an even components of the signal, $\mathbf{P}$ and $\mathbf{U}$ are *prediction* and *update* convolutional operators, and  $\mathbf{d}$ and $\mathbf{a}$ are output differences and averages. At the next scale, the average $\mathbf{a}$ becomes the new signal and is split into differences and averages again.
+$\widehat{\mathbf{m}} = \mathbf{C}_{m}\,\mathbf{F}^T\,\left(\mathbf{F}\,\mathbf{C}_{m}\,\mathbf{F}^T + \mathbf{C}_n\right)^{-1}\,\mathbf{d}\;,$
+
+where $\mathbf{d}$ represents rainfall measurements at the given weather stations, $\widehat{\mathbf{m}}$ is the estimated rainfall map, and $\mathbf{F}$ is the forward interpolation operator applied to the map.
+
+We assume the noise is uniform and Gaussian: $\mathbf{C}_n = \epsilon^2\,\mathbf{I}$, and the model covariance can be decomposed as $\mathbf{C}_{m} = \mathbf{P}_m\,\mathbf{P}_m^T$, analogous to the previously used splitting of the inverse covariance $\mathbf{C}_m^{-1} = \mathbf{R}_m^T\,\mathbf{R}$.
+
+If $\mathbf{R}_m$ is the gradient filter, then $\mathbf{C}_m^{-1}$ is the Laplacian, and $\mathbf{P}_m$ can be implemented as inverse (recursive) convolution using the helical derivative.
 """
 
-# ╔═╡ ce7de978-7e46-4851-a94f-8f0be028a438
+# ╔═╡ 853f6363-7c11-4a5c-a67b-f42b76f83985
+function conjgrad(forward::Function, adjoint::Function, precon::Function, 
+                  d::Array, x0::Array, niter::Int)
+    "Conjugate-gradients for minimizing |forward(precon(x))-d|^2"
+ 	x = deepcopy(x0)
+    R = forward(precon(x, false)) - d  
+    s, S = similar(x), similar(d)
+    gnp = zero(eltype(x))
+    for iter in 1:niter
+        g = precon(adjoint(R), true)
+        G = forward(precon(g, false))
+        gn = g ⋅ g    
+        if iter==1 # steepest descent
+            s, S = g, G
+        else            
+            β = gn/gnp
+            s = g + β*s
+            S = G + β*S
+        end
+        gnp = gn      
+        α = -gn/(S ⋅ S)
+        x += α*s
+        R += α*S
+		@show iter, (R ⋅ R) 
+    end
+    return precon(x, false)
+end
+
+# ╔═╡ b47471c9-a7f1-4849-b853-06fcf838e8a8
+begin
+	# download data files
+	download("https://ahay.org/data/rain/alldata.rsf@","alldata.bin")
+	download("https://ahay.org/data/rain/obsdata.rsf@","obsdata.bin")
+end
+
+# ╔═╡ 01eb92e7-99fc-4570-8207-fbe8d48315a4
+begin
+	# read data
+	alldata = Array{Float32}(undef, 3, 467); # single-precision array
+	obsdata = Array{Float32}(undef, 3, 100); # single-precision array
+	read!("alldata.bin", alldata)
+	read!("obsdata.bin", obsdata)
+end
+
+# ╔═╡ 0a091dcb-7d40-43f8-828c-73afd494986e
+function lint(regul::Array, coord; d=[1,1], o=[0,0])
+    "bilinear interpolation"
+    n = size(regul)
+    nd = size(coord, 2)
+    irreg = Array{eltype(regul)}(undef, nd)
+    for id in 1:nd
+		# find nearest neighbor
+		x1 = 1 + (coord[1,id] - o[1])/d[1]
+		x2 = 1 + (coord[2,id] - o[2])/d[2]
+        i1, i2 = floor(Int, x1), floor(Int, x2)
+		a1, a2 = x1 - i1, x2 - i2
+		b1, b2 = 1 - a1, 1 - a2 
+        if 0 < i1 && i1 < n[1] && 0 < i2 && i2 < n[2]
+            irreg[id] = regul[i1,i2]*b1*b2 + regul[i1+1,i2]*a1*b2 +
+			            regul[i1,i2+1]*b1*a2 + regul[i1+1,i2+1]*a1*a2
+        end
+    end
+    return irreg
+end
+
+# ╔═╡ c60f5c19-a29e-4725-a8a0-fbe8ccb01d07
+function lint_adjoint(irreg::Vector{T}, coord, n::Vector{Int}; 
+                      d=[1,1], o=[0,0]) where T <: Real
+    "adjoint of bilinear interpolation"
+    nd = size(coord, 2)
+    regul = zeros(T, n[1], n[2])
+    for id in 1:nd
+		# find nearest neighbor
+		x1 = 1 + (coord[1,id] - o[1])/d[1]
+		x2 = 1 + (coord[2,id] - o[2])/d[2]
+        i1, i2 = floor(Int, x1), floor(Int, x2)
+		a1, a2 = x1 - i1, x2 - i2
+		b1, b2 = 1 - a1, 1 - a2 
+        if 0 < i1 && i1 < n[1] && 0 < i2 && i2 < n[2]
+			regul[i1,i2]     += irreg[id]*b1*b2
+			regul[i1+1,i2]	 += irreg[id]*a1*b2
+			regul[i1,i2+1]   += irreg[id]*b1*a2
+			regul[i1+1,i2+1] += irreg[id]*a1*a2
+        end
+    end
+    return regul
+end
+
+# ╔═╡ ef3dd2af-49c9-4c3b-a542-903c7bd5a047
+begin
+	lat = -185:185 # latitude
+	lon = -127:127 # longitude
+	nlat, nlon = length(lat), length(lon)
+end
+
+# ╔═╡ e4d776d8-d834-4aed-87e4-d1302428c167
+begin
+	forward(x) = lint(x, obsdata, o=[lat[1], lon[1]])
+	adjoint(y) = lint_adjoint(y, obsdata, [nlat, nlon], o=[lat[1], lon[1]])
+	# preconditioning
+	precon(x, adj) = hrecursive(x, helder, adj)
+end
+
+# ╔═╡ 213a1957-a6da-42f5-8368-249c0fddc708
+rain0 = zeros(Float32, 371, 255);
+
+# ╔═╡ e5c266f8-c106-45ee-a980-199d96cbbed6
+map10 = conjgrad(forward, adjoint, precon, obsdata[3,:], rain0, 10);
+
+# ╔═╡ 0dd14e51-54c8-4755-908b-a052f10b6b4f
+heatmap(lat, lon, map10', title="Helical Preconditioning (10 iterations)", cmap=:viridis)
+
+# ╔═╡ a4286dc5-f957-48ec-9dc4-c268119a797d
+predict = lint(map10, alldata, o=[lat[1], lon[1]]);
+
+# ╔═╡ b6771e75-bc74-47d9-8465-3dae76d8be7e
+function plot_corr(predict::Vector, title::String)
+	lim = [-10,600]
+	exact = alldata[3,:]
+	# correlation coefficient
+	cc = (exact ⋅ predict)/(sqrt(exact ⋅ exact) * sqrt(predict ⋅ predict))
+	scatter(exact, predict, xlabel="True", ylabel="Predicted", 
+		title="$title, cc=$(Float16(cc))",
+	    aspect_ratio=:equal, xlim=lim, ylim=lim, label=:none)
+	plot!(lim, lim, label=:none)
+end
+
+# ╔═╡ c1ba6693-877c-49f9-88b9-976cbfe506a7
+plot_corr(predict, "Helical Preconditioning")
+
+# ╔═╡ 0bc784ec-0b7e-4f7f-a498-6657c8cc67a6
 md"""
-This rearrangement, known as the *lifting scheme*, allows the computation to be performed *in place* without making new copies of the data. The data vector is replaced by its transform without duplication. It is also easy to write the inverse operation by simply reversing the steps, as follows:
+!!! assignment
 
-$$\begin{array}{rcl}\mathbf{e} & = & \mathbf{a} - \mathbf{U[r]}\;, \\
-    \mathbf{o} & = & \mathbf{r}  + \mathbf{P[e]}\;,\end{array}$$
+    ## Task 4
 
-To define the transform, we need to choose an appropriate $\mathbf{P}$ and design $\mathbf{U}$ to satisfy the previously defined condition.
+    Find experimentally the optimal number of iterations for this approach.
 """
 
-# ╔═╡ e675f460-d681-40b4-8479-2c722d7a9b5f
+# ╔═╡ 2562f16a-6a08-4efe-98d2-412d6bad0c84
 md"""
-As an example, the filters we used in the example above use the following forms of prediction and update:
+!!! assignment
 
-$$\begin{array}{rcl}  \mathbf{P[e]}_n & = & \left(\mathbf{e}_{n-1} +
-    \mathbf{e}_{n}\right)/2\;, \\ 
-  \mathbf{U[r]}_n & = & \left(\mathbf{r}_{n-1} + \mathbf{r}_{n}\right)/4\;.,\end{array}$$
+    ## Task 5
 
-Longer DWT filters may require multiple lifting steps.
+    Compare the result with the gradient regularization from the previous assignment in terms of accuracy and efficiency.
 """
 
-# ╔═╡ 5e4a93ff-fe0a-4dda-a979-ee6add0ba3d7
+# ╔═╡ 5a92aa15-c5e8-44f0-83c9-d3c50abc9147
 md"""
-## From wavelets to seislets
+!!! assignment
 
-The idea of the seislet transform is to adopt the structure of the DWT but to rethink the prediction and update steps in the lifting scheme so that they focus on predicting the most essential features of the signal.
-"""
+    ## Bonus Task
 
-# ╔═╡ 6a618dfa-5123-47bf-9ac2-5d7fc5c32fe1
-md"""
-Note, for example, that the filter $H(Z)=1-Z$ in the Haar transform corresponds to exact prediction of zero-frequency signals. To modify the prediction for a non-zero frequency $\omega_0$, it is sufficient to modulate the prediction using $H(Z)=1-Z/Z_0$, where $Z_0=e^{-i\,\omega_0\,\Delta t}$. Substituting $Z/Z_0$ for $Z$ in the definition of DWT defines the one-dimensional seislet transform.
-"""
-
-# ╔═╡ 9df0a409-1c37-4ea9-b935-f0b19ef842d9
-md"""
-What if we want to use multiple frequencies rather than a single dominant one? Applying a seislet transform to each frequency yields an overcomplete representation, known as a *frame*. This overcompleteness allows us to search for the sparsest possible representation of the data in the transform domain.
-"""
-
-# ╔═╡ a9d23ab0-216b-4d5e-82f0-7933d5dcb552
-md"""
-## References
-
-The Haar transform was first proposed in 1909 by Alfréd Haar, a Hungarian mathematician. It took a long time before more general concepts in wavelet analysis could be developed and applied to digital data.
-"""
-
-# ╔═╡ d0cef261-f6f0-4692-b217-e7e7ce29644f
-md"""
-Morlet (1981) first proposed the continuous wavelet transform, motivated by seismic data analysis and the term "wavelet." Some of the world's brightest applied mathematicians contributed to the development of a multiresolution theory that bridges continuous wavelets and filtering techniques in digital signal processing (Daubechies, 1992). For a comprehensive treatment of wavelet theory, see Mallat (2008). Jensen and la Cour-Harbo (2001) provide a concise introduction to DWT.
-"""
-
-# ╔═╡ e8955866-0d1c-4423-89c6-cb2c521b3367
-md"""
-* Daubechies, I., 1992, Ten lectures on wavelets: SIAM.
-* Jensen, A., and A. la Cour-Harbo, 2001, Ripples in mathematics: the discrete wavelet transform: Springer Science & Business Media.
-* Mallat, S., 2008, A wavelet tour of signal processing: The sparse way, 3rd ed.: Academic Press, Inc.
-* Morlet, J., 1981, Sampling theory and wave propagation: 51st Ann. Internat. Mtg, Soc. of Expl. Geophys., Session:S15.1.
-"""
-
-# ╔═╡ 0c551855-1ca7-4713-a916-cf97f590157d
-md"""
-
-The lifting scheme was proposed by Sweldens (1995) and further developed by Daubechies & Sweldens (1998).
-
-* Daubechies, I., and W. Sweldens, 1998, Factoring wavelet transforms into lifting steps: Journal of Fourier analysis and applications, 4, 247–269.
-* Sweldens, W., 1995, The lifting scheme: A new philosophy in biorthogonal wavelet con- structions: Wavelet Applications in Signal and Image Processing III, Proc. SPIE 2569, 68–79.
-"""
-
-# ╔═╡ db5d1895-19e5-4457-b999-37a10c4fb708
-md"""
-The field of image analysis brought several wavelet-like representations that explore the directional characteristics of images (Welland, 2003). Among those transforms are contourlets (Do and Vetterli, 2005), shearlets (Guo & Labate, 2007), and some others. These transforms attempt to represent elongated image features, such as curved edges.  
-"""
-
-# ╔═╡ 75e78f81-8fe4-4c85-b335-029a28176f79
-md"""
-* Do, M. N., and M. Vetterli, 2005, The contourlet transform: an efficient directional multiresolution image representation: IEEE Transactions on Image Processing, 14, 2091–2106. 
-* Guo, K., and D. Labate, 2007, Optimally sparse multidimensional representation using shearlets: SIAM Journal on Mathematical Analysis, 39, 298–318.
-* Welland, G., ed., 2003, Beyond wavelets: Academic Press.
-"""
-
-# ╔═╡ 568df3d4-16a2-42d7-bae3-c5ef69a0d967
-md"""
-Curvelets (Starck et al., 2002; Candès et al., 2006) have become especially popular for analyzing seismic images (Herrmann & Hennenfent, 2008).
-"""
-
-# ╔═╡ d40fb873-15c1-4ead-9bf7-9a9df9cb6190
-md"""
-* Candès, E., Demanet, L., Donoho, D. and Ying, L., 2006. Fast discrete curvelet transforms. multiscale modeling & simulation, 5, 861-899.
-* Herrmann, F. J., and G. Hennenfent, 2008, Non-parametric seismic data recovery with curvelet frames: Geophysical Journal International, 173, 233–248.
-* Starck, J. L., E. J. Candès, and D. L. Donoho, 2002, The curvelet transform for image denoising: IEEE Transactions on Image Processing, 11, 670–684.
-"""
-
-# ╔═╡ 4a51e4b2-e388-4c8c-9e2a-b3d46fc6f651
-md"""
-The seislet transform was proposed by Fomel (2006) and extended by (Fomel & Liu, 2010).
-
-* Fomel, S., 2006, Towards the seislet transform, in 76th Ann. Internat. Mtg: Soc. of Expl. Geophys., 2847–2850.
-* Fomel, S., and Y. Liu, 2010, Seislet transform and seislet frame: Geophysics, 75, V25–V38. 
+    Try improving the rainfall interpolation result by replacing the helical derivative with an alternative filter.
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUIExtra = "a011ac08-54e6-4ec3-ad1c-4165f16ac4ce"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
 HTTP = "~1.11.0"
@@ -611,7 +911,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "efd5a6aff0c01007f4157b0955a6a10f46e12020"
+project_hash = "23bda211212e72ba4264e8e1a0118ecfb24b58e4"
 
 [[deps.AbstractPlutoDingetjes]]
 git-tree-sha1 = "6c3913f4e9bdf6ba3c08041a446fb1332716cbc2"
@@ -1865,79 +2165,90 @@ version = "1.13.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─6f2617f2-eca7-4575-b1e5-c5f254516d88
-# ╟─8ad29b44-d1d8-4253-9ec7-4ec983d71026
-# ╟─567d20a3-d04f-42b4-8495-cd91fbae3c45
-# ╟─359483d5-0d23-4d47-ab24-cbfaa505b16e
-# ╟─e451844b-0017-4c03-95e1-561795859321
-# ╟─a9957069-99bd-4c4a-8e31-72e3f3bbf87a
-# ╟─28a36422-722f-4726-954b-a68b40b58705
-# ╟─939e0835-bafe-4ae1-be4f-519a2d030580
-# ╟─202fcfd9-cb0d-4153-9672-bdfc008c435e
-# ╟─80cc744b-3209-4129-9eee-b9239b6cd601
-# ╟─8b952246-80b2-44f6-b8d2-c8d6f80adfda
-# ╟─5a26a2da-030b-458f-b123-36fee9b13ba7
-# ╠═7116a716-51f0-4849-810a-9b834d8e31cf
-# ╠═291f65a8-a649-42f4-99ca-2fa3c66ecef0
-# ╠═0e81369e-bd42-411e-b767-113097242f8c
-# ╠═5ce31f40-776e-49fc-ae87-6d8b908c645a
-# ╠═57fc5904-b45b-4390-a250-7a9cff4c8c5a
-# ╠═352401a1-9016-407e-88ee-2dfe784f9057
-# ╠═2de4580d-319e-4b96-bcee-c4dc7e65aaad
-# ╠═4abb361a-d914-4fc3-a422-4a0341f1e4e0
-# ╠═3b655702-ffb6-4d0a-8360-02d94e1f080d
-# ╠═d7a8135b-df9d-4882-b277-7489d1229b6a
-# ╠═89a01055-d24b-488c-a3c8-9c8822567cd8
-# ╠═c495f591-f815-4189-bd0c-82fa209a5fff
-# ╠═230dd685-c9fe-4785-8eb6-177ad8d9a521
-# ╠═cfb14a1b-7274-467b-b588-493f0069c834
-# ╠═f0a1d712-14bc-47fc-894c-8e9f0525c9c1
-# ╠═9a69f3f1-b85e-4218-a06b-ee290d41f3a4
-# ╠═4b6430f7-25eb-4d8b-8b77-1e3a83f58f37
-# ╠═2baf629c-df91-45cc-a994-427b8d64d8a1
-# ╠═47f54019-42b4-4598-84e0-1a56bc988de1
-# ╟─240a7adb-bb7e-4919-8ee5-e98e1c618482
-# ╟─b859db26-6a71-4cce-9ea0-19f738680c71
-# ╟─ba630263-19b1-47f1-b6ca-ee5843c49df8
-# ╟─748ff555-8c4e-415e-bf6d-33be6c49591b
-# ╠═eb22ac80-cee8-47b3-9057-f7c1bb4d7a1f
-# ╠═af89270e-bde4-4daa-be11-96b72b61f484
-# ╠═5772dd5b-b4b1-4bbc-86ce-97dededbd613
-# ╟─2448b7b0-d7e4-4950-9e53-44a89e7d41db
-# ╟─c9037f5a-6847-4d1e-8d9d-3b8b94aa522d
-# ╟─dcab260a-cd2d-4603-9ceb-787a50aff76d
-# ╟─340467eb-0b82-43e9-b0e4-429cdc6e6064
-# ╟─96f1c5f7-f443-4095-a222-e80451588ab2
-# ╟─480411a7-aab9-4837-bd96-36cfd0d1992a
-# ╟─9556acd8-154e-4dc5-8d6e-418992d5ee0b
-# ╟─24f792a7-14ad-4ca7-8691-7d601eb380e3
-# ╟─aa5770df-7711-447a-85f7-832133c1ab73
-# ╟─5f3dae3a-202d-4378-b641-6f2ae5266d7d
-# ╟─69802871-9d63-4193-a392-d26a89c8724f
-# ╠═bbeb09ca-af66-4897-a780-0adc0a99a680
-# ╠═1b7fd166-bd10-4af2-a9a4-7ddb0f86d2a1
-# ╠═ea3ed115-dc10-4754-971e-0b80f8608889
-# ╠═d5606f38-9231-463b-93fa-b74a7651fbcf
-# ╠═a76601ad-6e79-4b07-9e99-5285a5e090db
-# ╠═6dcd45b7-fdd4-4e7e-8ec6-e1efae25c78d
-# ╠═b201e2fe-e14a-4d76-8266-181a40b3c89a
-# ╠═9a9d6b70-8914-4aa1-bfde-57620f25ce23
-# ╠═078571af-5e5b-4ba2-86b5-50949f16b737
-# ╟─eefd1fc3-c0e3-4cfb-b42b-fb2ead981b33
-# ╟─10a9dbab-eb69-4489-9f50-18a915468a78
-# ╟─ce7de978-7e46-4851-a94f-8f0be028a438
-# ╟─e675f460-d681-40b4-8479-2c722d7a9b5f
-# ╟─5e4a93ff-fe0a-4dda-a979-ee6add0ba3d7
-# ╟─6a618dfa-5123-47bf-9ac2-5d7fc5c32fe1
-# ╟─9df0a409-1c37-4ea9-b935-f0b19ef842d9
-# ╟─a9d23ab0-216b-4d5e-82f0-7933d5dcb552
-# ╟─d0cef261-f6f0-4692-b217-e7e7ce29644f
-# ╟─e8955866-0d1c-4423-89c6-cb2c521b3367
-# ╟─0c551855-1ca7-4713-a916-cf97f590157d
-# ╟─db5d1895-19e5-4457-b999-37a10c4fb708
-# ╟─75e78f81-8fe4-4c85-b335-029a28176f79
-# ╟─568df3d4-16a2-42d7-bae3-c5ef69a0d967
-# ╟─d40fb873-15c1-4ead-9bf7-9a9df9cb6190
-# ╟─4a51e4b2-e388-4c8c-9e2a-b3d46fc6f651
+# ╟─07e27cd5-4c74-4e73-b1a7-d5fe2651f02f
+# ╟─0a8c1424-35f5-44f7-97bb-8ba02df829ec
+# ╟─0b62a901-60f5-4eec-a5e3-e92f880ff6c6
+# ╟─c8439cda-03b0-44a0-b5ad-14617f30ba32
+# ╟─7beae512-736a-48ff-af57-41e7f805f599
+# ╠═233d6871-5184-487a-b631-9b6de417eabd
+# ╠═908b43bb-6980-42ef-8b58-d97e299ff66d
+# ╠═ba18eae6-c56c-4838-85d5-2a37bdaba6c1
+# ╠═4d409430-0f82-44df-ab59-1a9108f1e6d4
+# ╠═868cfea3-4029-416a-95e3-81f4e05a7a81
+# ╠═e0781ad3-5c46-4cb6-baac-5ab20a02dbfa
+# ╠═c87909ed-82da-4c0b-9cd7-41b91166c693
+# ╟─0a686f45-2554-4e2b-9b5f-27212ecc044c
+# ╟─5327b862-bd75-4fad-93d0-c6898ea9c673
+# ╟─00e9dff1-4d9c-4d66-ad0e-d33525646c9e
+# ╟─a0d7a53c-a85c-4d94-bcef-925f1ada4138
+# ╟─5ccde062-0cf9-4fcd-944f-850e80a81e46
+# ╟─b308544d-342f-4aaa-9eb4-9e9d0e877645
+# ╟─edc19bb9-8929-4117-b040-8cb9cee02a25
+# ╟─157f5f20-58e3-41eb-97b9-f9ff590153b8
+# ╠═0659951e-47c5-4115-b3c0-48ef4d5e1c15
+# ╠═2fc1789d-bbf6-4689-8040-68277c5b5dc3
+# ╠═2cd510b3-7d52-4fc2-b54e-8a584fb501f8
+# ╠═a6277f35-419b-4c08-97bd-e68c668a9b5d
+# ╟─f73c8d74-8c19-47b0-8548-aa5fc5fd8cdc
+# ╠═105c82f6-ba75-4118-b4d2-6804796af16f
+# ╠═9cad3b34-e5fb-4512-aa33-57341c14d06a
+# ╠═96319f90-4af2-45d2-bc70-68e7b09da964
+# ╠═0346e4ce-7150-4afa-b506-747ac6047d31
+# ╠═cc9fd071-8c16-4e17-9614-a43045abb148
+# ╠═f75dad75-f590-414b-8c9b-25050f225cd4
+# ╠═cf0d841f-1dbb-4276-aad9-e8b3def57392
+# ╠═c4d612dc-73fe-41ec-92e1-666fcc8f2662
+# ╠═dc5e6482-1fb9-4830-8f30-9626118f02e6
+# ╠═330404b7-6695-4585-bcf9-e9933900279f
+# ╠═87bd88cd-d8a3-4d0f-927f-77f77c669fb1
+# ╠═19b733ed-1d7f-4525-82de-7ac152e60190
+# ╠═132b5edd-52e8-47a5-a68e-5f4448b9533d
+# ╟─108e4423-f61f-4bbf-b053-fbea44eab5a7
+# ╠═58b6375b-9067-4ee2-b260-4b0ae3b8e426
+# ╠═13e36512-7ced-4a91-9e35-32b34ffd8cfa
+# ╠═cc8a8ca1-2f66-4574-afbd-ab2649f3329f
+# ╟─137d4887-fb9a-4c72-8318-b98c05143b41
+# ╟─59f2dc5b-d9bb-41e6-b166-e33e976696d4
+# ╠═801118cb-70da-4ffc-aca2-c41931337966
+# ╠═278f7dea-9887-4dfc-af36-cea4ebc51039
+# ╠═d2bef630-c655-4b96-8445-37e8e3c5e1db
+# ╠═310173c7-f937-4411-b38d-578172009ec8
+# ╠═eb6f694f-77d8-42bb-87c5-fa8c4eb0b865
+# ╠═6a43dd30-7799-4509-a175-0459770f7488
+# ╠═4ae0dd57-182c-47f0-8243-f0ed9f3c7ff9
+# ╠═fb604622-7044-4564-8773-059d08e06715
+# ╠═970126c6-8e4a-4b01-9f1a-80290e372f85
+# ╠═fb5730c4-c250-4979-af8e-20c337a6393b
+# ╟─a058667e-f3a8-47e5-83b1-73a8bf7680c4
+# ╠═37282a3e-faf6-4dc1-be12-30dbb2e2189c
+# ╠═538a1c40-047f-4624-9957-d7b3b2335005
+# ╠═15f4a40c-366d-4e44-b490-33694f5749fa
+# ╠═764abb6c-da30-4fe6-bba3-28e4c91a7b6f
+# ╠═ca01a561-a004-4168-b4c0-414d74529b1f
+# ╠═d52c06c2-2be5-489e-8582-3ef27d156c99
+# ╠═16c3eca9-03f3-4d01-abdf-92c1b969da0d
+# ╠═20a68a1e-02ce-4ba8-a227-eae93233fc74
+# ╠═7367d669-656c-4333-bfc9-1222a89d93f1
+# ╠═89eb1ba3-20c0-4c26-b8b6-47ab0c15c3d6
+# ╠═ef0c5550-69e4-4848-806a-1394a096d57d
+# ╠═fcc8b334-b706-4c52-b4bc-a01cbfd09ab1
+# ╟─bc4cc41a-1208-4c7f-8cad-2131a0e192e5
+# ╟─7f311104-b2f5-4082-865a-cb029fcc277a
+# ╠═853f6363-7c11-4a5c-a67b-f42b76f83985
+# ╠═b47471c9-a7f1-4849-b853-06fcf838e8a8
+# ╠═01eb92e7-99fc-4570-8207-fbe8d48315a4
+# ╠═0a091dcb-7d40-43f8-828c-73afd494986e
+# ╠═c60f5c19-a29e-4725-a8a0-fbe8ccb01d07
+# ╠═ef3dd2af-49c9-4c3b-a542-903c7bd5a047
+# ╠═e4d776d8-d834-4aed-87e4-d1302428c167
+# ╠═213a1957-a6da-42f5-8368-249c0fddc708
+# ╠═e5c266f8-c106-45ee-a980-199d96cbbed6
+# ╠═0dd14e51-54c8-4755-908b-a052f10b6b4f
+# ╠═a4286dc5-f957-48ec-9dc4-c268119a797d
+# ╠═b6771e75-bc74-47d9-8465-3dae76d8be7e
+# ╠═c1ba6693-877c-49f9-88b9-976cbfe506a7
+# ╟─0bc784ec-0b7e-4f7f-a498-6657c8cc67a6
+# ╟─2562f16a-6a08-4efe-98d2-412d6bad0c84
+# ╟─5a92aa15-c5e8-44f0-83c9-d3c50abc9147
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
