@@ -5,7 +5,7 @@
 #> chapter = 4
 #> section = 26
 #> order = 26
-#> image = "https://raw.githubusercontent.com/fonsp/Pluto.jl/580ab811f13d565cc81ebfa70ed36c84b125f55d/demo/plutodemo.gif"
+#> image = "https://github.com/quentingageclark-a11y/plutoimages/blob/main/adreg.png?raw=true"
 #> title = "Adaptive Regularization"
 #> tags = ["module4", "track_julia", "track_material", "Pluto", "PlutoUI"]
 #> layout = "layout.jlhtml"
