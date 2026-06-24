@@ -5,7 +5,7 @@
 #> chapter = 4
 #> section = 22
 #> order = 22
-#> image = "https://raw.githubusercontent.com/fonsp/Pluto.jl/580ab811f13d565cc81ebfa70ed36c84b125f55d/demo/plutodemo.gif"
+#> image = "https://github.com/quentingageclark-a11y/plutoimages/blob/main/localat.png?raw=true"
 #> title = "Local Attributes"
 #> tags = ["module4", "track_julia", "track_material", "Pluto", "PlutoUI"]
 #> layout = "layout.jlhtml"
